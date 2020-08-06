@@ -7,6 +7,3 @@ use app::FlashcardApp;
 fn main() {
     FlashcardApp::run(Settings::default());
 }
-
-
-

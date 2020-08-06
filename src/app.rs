@@ -1,13 +1,13 @@
 
 use iced::{button, Align};
-use iced::{Button, Column, Text, Settings, Element, Application, executor, Command};
-use std::ops::Index;
-use crate::db::connect_to_db;
+use iced::{Button, Column, Text, Element, Application, executor, Command};
+use crate::db::Database;
 use crate::db::entities::Cat;
 
-#[derive(Default)]
+// #[derive(Default)]
 pub struct FlashcardApp {
     value: usize,
+    db: Database,
     cats: Vec<Cat>,
 
     next_button: button::State,
@@ -27,9 +27,14 @@ impl Application for FlashcardApp {
 
 
     fn new(_flags: ()) -> (FlashcardApp, Command<Self::Message>) {
+        let mut db = Database::connect().unwrap();
+        let cats = db.load_db().unwrap();
+
+
         (FlashcardApp {
             value: 0,
-            cats: connect_to_db().unwrap(),
+            db,
+            cats,
             next_button: Default::default(),
             previous_button: Default::default()
         }, Command::none())
@@ -48,6 +53,7 @@ impl Application for FlashcardApp {
                 if self.value >= self.cats.len() {
                     self.value -= self.cats.len();
                 }
+
             }
             Message::PreviousPressed => {
                 if self.value == 0 {
@@ -60,6 +66,16 @@ impl Application for FlashcardApp {
     }
 
     fn view(&mut self) -> Element<Message> {
+        let mut name = String::new();
+        match &self.cats.get(self.value) {
+            Some(cat) => {
+                name = cat.name.clone();
+            },
+            None => {
+            }
+        }
+
+
         Column::new()
             .padding(20)
             .align_items(Align::Center)
@@ -68,7 +84,7 @@ impl Application for FlashcardApp {
                     .on_press(Message::NextPressed),
             )
             .push(
-                Text::new(&self.cats.index(self.value).name).size(50),
+                Text::new(name).size(50),
             )
             .push(
                 Button::new(&mut self.previous_button, Text::new("Previous cat"))
