@@ -2,22 +2,20 @@
 use rusqlite::{Connection, Result};
 use rusqlite::NO_PARAMS;
 use iced::{button, Align};
-use iced::{Button, Column, Text, Sandbox, Settings, Element};
+use iced::{Button, Column, Text, Settings, Element, Application, executor, Command};
+use std::ops::Index;
 
 fn main() {
-    println!("Hello, world!");
-
-    connect_to_db();
     Counter::run(Settings::default());
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Cat {
     name: String,
     colour: String,
 }
 
-fn connect_to_db() -> Result<()> {
+fn connect_to_db() -> Result<Vec<Cat>> {
     println!("Let's try connecting to the DB");
     let conn = Connection::open("test.db")?;
 
@@ -32,16 +30,20 @@ fn connect_to_db() -> Result<()> {
         })
     })?;
 
+    let mut cat_vector = Vec::new();
+
     for cat in cats {
         println!("Found cat {:?}", cat);
+        cat_vector.push(cat.unwrap());
     }
 
-    Ok(())
+    Ok(cat_vector)
 }
 
 #[derive(Default)]
 struct Counter {
-    value: i32,
+    value: usize,
+    cats: Vec<Cat>,
 
     increment_button: button::State,
     decrement_button: button::State,
@@ -53,26 +55,43 @@ pub enum Message {
     DecrementPressed,
 }
 
-impl Sandbox for Counter {
+impl Application for Counter {
+    type Executor = executor::Null;
     type Message = Message;
+    type Flags = ();
 
-    fn new() -> Self {
-        Self::default()
+
+    fn new(_flags: ()) -> (Counter, Command<Self::Message>) {
+        (Counter {
+            value: 0,
+            cats: connect_to_db().unwrap(),
+            increment_button: Default::default(),
+            decrement_button: Default::default()
+        }, Command::none())
+
     }
 
     fn title(&self) -> String {
         String::from("Kitties")
     }
 
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Command<Self::Message> {
         match message {
             Message::IncrementPressed => {
                 self.value += 1;
+
+                if self.value >= self.cats.len() {
+                    self.value -= self.cats.len();
+                }
             }
             Message::DecrementPressed => {
+                if self.value == 0 {
+                    self.value += self.cats.len();
+                }
                 self.value -= 1;
             }
         }
+        Command::none()
     }
 
     fn view(&mut self) -> Element<Message> {
@@ -84,7 +103,7 @@ impl Sandbox for Counter {
                     .on_press(Message::IncrementPressed),
             )
             .push(
-                Text::new(&self.value.to_string()).size(50),
+                Text::new(&self.cats.index(self.value).name).size(50),
             )
             .push(
                 Button::new(&mut self.decrement_button, Text::new("Previous cat"))
@@ -93,3 +112,4 @@ impl Sandbox for Counter {
             .into()
     }
 }
+
