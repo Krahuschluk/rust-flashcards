@@ -1,17 +1,18 @@
 
 use iced::{button, Align};
-use iced::{Button, Column, Text, Element, Application, executor, Command};
+use iced::{Button, Column, Text, Element, Application, executor, Command, Container, Row, Length};
 use crate::db::Database;
 use crate::db::entities::Cat;
 
 // #[derive(Default)]
 pub struct FlashcardApp {
-    value: usize,
+    index: usize,
     db: Database,
     cats: Vec<Cat>,
 
     next_button: button::State,
     previous_button: button::State,
+    give_up_button: button::State,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,11 +33,12 @@ impl Application for FlashcardApp {
 
 
         (FlashcardApp {
-            value: 0,
+            index: 0,
             db,
             cats,
             next_button: Default::default(),
-            previous_button: Default::default()
+            previous_button: Default::default(),
+            give_up_button: Default::default(),
         }, Command::none())
 
     }
@@ -48,18 +50,18 @@ impl Application for FlashcardApp {
     fn update(&mut self, message: Message) -> Command<Self::Message> {
         match message {
             Message::NextPressed => {
-                self.value += 1;
+                self.index += 1;
 
-                if self.value >= self.cats.len() {
-                    self.value -= self.cats.len();
+                if self.index >= self.cats.len() {
+                    self.index -= self.cats.len();
                 }
 
             }
             Message::PreviousPressed => {
-                if self.value == 0 {
-                    self.value += self.cats.len();
+                if self.index == 0 {
+                    self.index += self.cats.len();
                 }
-                self.value -= 1;
+                self.index -= 1;
             }
         }
         Command::none()
@@ -67,7 +69,7 @@ impl Application for FlashcardApp {
 
     fn view(&mut self) -> Element<Message> {
         let mut name = String::new();
-        match &self.cats.get(self.value) {
+        match &self.cats.get(self.index) {
             Some(cat) => {
                 name = cat.name.clone();
             },
@@ -75,21 +77,25 @@ impl Application for FlashcardApp {
             }
         }
 
+        let next_button = Button::new(&mut self.next_button, Text::new("Next cat"))
+            .on_press(Message::NextPressed);
 
-        Column::new()
-            .padding(20)
+        let previous_button = Button::new(&mut self.previous_button, Text::new("Previous cat"))
+            .on_press(Message::PreviousPressed);
+
+        let content = Column::new()
+            .spacing(100)
             .align_items(Align::Center)
-            .push(
-                Button::new(&mut self.next_button, Text::new("Next cat"))
-                    .on_press(Message::NextPressed),
-            )
-            .push(
-                Text::new(name).size(50),
-            )
-            .push(
-                Button::new(&mut self.previous_button, Text::new("Previous cat"))
-                    .on_press(Message::PreviousPressed),
-            )
+            .push(next_button)
+            .push(Text::new(name).size(100))
+            .push(previous_button);
+
+        Container::new(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y()
             .into()
+
     }
 }
