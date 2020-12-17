@@ -1,6 +1,8 @@
 TODOs
 - Window sizing
-- Make the app show a korean word
-- Add button to show the "answer"
+- Shuffle instead of next
+- Scenes? Can have as enum instead of struct. Scene for DB modification, menu, actual work
 - Add button to add word pair to DB
 - Add button to remove word pair from DB
+- English to Korean mode
+- Korean to English mode
