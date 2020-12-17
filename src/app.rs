@@ -1,24 +1,33 @@
-
-use iced::{button, Align};
-use iced::{Button, Column, Text, Element, Application, executor, Command, Container, Row, Length};
+use crate::db::entities::WordPair;
 use crate::db::Database;
-use crate::db::entities::Cat;
+use iced::{button, Align};
+use iced::{executor, Application, Button, Column, Command, Container, Element, Length, Row, Text};
 
 // #[derive(Default)]
-pub struct FlashcardApp {
+pub enum FlashcardApp {
+    Menu,
+    Flashcard(FlashcardState),
+    Database,
+}
+
+struct FlashcardState {
     index: usize,
     db: Database,
-    cats: Vec<Cat>,
+    words: Vec<WordPair>,
 
     next_button: button::State,
     previous_button: button::State,
-    give_up_button: button::State,
+    show_button: button::State,
+
+    show_flag: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message {
     NextPressed,
     PreviousPressed,
+    ShowButtonPressed,
+    HideButtonPressed,
 }
 
 impl Application for FlashcardApp {
@@ -26,21 +35,23 @@ impl Application for FlashcardApp {
     type Message = Message;
     type Flags = ();
 
-
     fn new(_flags: ()) -> (FlashcardApp, Command<Self::Message>) {
         let mut db = Database::connect().unwrap();
-        let cats = db.load_db().unwrap();
+        let words = db.load_words().unwrap();
 
+        (
+            FlashcardApp::Flashcard(FlashcardState {
+                index: 0,
+                db,
+                words,
+                next_button: Default::default(),
+                previous_button: Default::default(),
+                show_button: Default::default(),
 
-        (FlashcardApp {
-            index: 0,
-            db,
-            cats,
-            next_button: Default::default(),
-            previous_button: Default::default(),
-            give_up_button: Default::default(),
-        }, Command::none())
-
+                show_flag: false,
+            }),
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
@@ -48,54 +59,96 @@ impl Application for FlashcardApp {
     }
 
     fn update(&mut self, message: Message) -> Command<Self::Message> {
-        match message {
-            Message::NextPressed => {
-                self.index += 1;
-
-                if self.index >= self.cats.len() {
-                    self.index -= self.cats.len();
+        match self {
+            FlashcardApp::Flashcard(state) => match message {
+                Message::NextPressed => {
+                    state.index += 1;
+                    if state.index >= state.words.len() {
+                        state.index -= state.words.len();
+                    }
+                    state.show_flag = false;
+                }
+                Message::PreviousPressed => {
+                    if state.index == 0 {
+                        state.index += state.words.len();
+                    }
+                    state.index -= 1;
+                    state.show_flag = false;
+                }
+                Message::ShowButtonPressed => {
+                    state.show_flag = true;
                 }
 
-            }
-            Message::PreviousPressed => {
-                if self.index == 0 {
-                    self.index += self.cats.len();
+                Message::HideButtonPressed => {
+                    state.show_flag = false;
                 }
-                self.index -= 1;
-            }
+            },
+
+            default => {}
         }
+
         Command::none()
     }
 
     fn view(&mut self) -> Element<Message> {
-        let mut name = String::new();
-        match &self.cats.get(self.index) {
-            Some(cat) => {
-                name = cat.name.clone();
-            },
-            None => {
+        match self {
+            FlashcardApp::Flashcard(state) => {
+                let mut english = String::new();
+                let mut korean = String::new();
+                match &state.words.get(state.index) {
+                    Some(word) => {
+                        english = word.english.clone();
+                        korean = word.korean.clone();
+                    }
+                    None => {
+                        // There should be some error handling here or just unwrap this baby
+                    }
+                }
+
+                let next_button = Button::new(&mut state.next_button, Text::new("Next word"))
+                    .on_press(Message::NextPressed);
+
+                let previous_button =
+                    Button::new(&mut state.previous_button, Text::new("Previous word"))
+                        .on_press(Message::PreviousPressed);
+
+                let english_text = Text::new(english).size(100);
+                let korean_text = if state.show_flag {
+                    Text::new(korean).size(100)
+                } else {
+                    Text::new("").size(100)
+                };
+
+                let show_button = if state.show_flag {
+                    Button::new(&mut state.show_button, Text::new("Hide answer"))
+                        .on_press(Message::HideButtonPressed)
+                } else {
+                    Button::new(&mut state.show_button, Text::new("Show answer"))
+                        .on_press(Message::ShowButtonPressed)
+                };
+
+                let mut content = Column::new()
+                    .spacing(100)
+                    .align_items(Align::Center)
+                    .push(english_text)
+                    .push(korean_text)
+                    .push(
+                        Row::new()
+                            .spacing(20)
+                            .push(previous_button)
+                            .push(next_button),
+                    )
+                    .push(show_button);
+
+                Container::new(content)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y()
+                    .into()
             }
+
+            default => Container::new(Column::new()).into(),
         }
-
-        let next_button = Button::new(&mut self.next_button, Text::new("Next cat"))
-            .on_press(Message::NextPressed);
-
-        let previous_button = Button::new(&mut self.previous_button, Text::new("Previous cat"))
-            .on_press(Message::PreviousPressed);
-
-        let content = Column::new()
-            .spacing(100)
-            .align_items(Align::Center)
-            .push(next_button)
-            .push(Text::new(name).size(100))
-            .push(previous_button);
-
-        Container::new(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .center_y()
-            .into()
-
     }
 }
